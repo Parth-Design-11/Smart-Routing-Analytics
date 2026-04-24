@@ -58,8 +58,8 @@ const sankey = computed(() => {
 
   const submittedIdx = addNode('Submitted', '#375DFB', xSubmitted, 0.5)
   // Delivered sits above, Failed below, so their links separate visually.
-  const deliveredIdx = addNode('Delivered', '#1A3497', xOutcome, 0.15)
-  const failedIdx = addNode('Failed', '#85A0FD', xOutcome, 0.82)
+  const deliveredIdx = addNode('Delivered', '#039855', xOutcome, 0.15)
+  const failedIdx = addNode('Failed', '#D92D20', xOutcome, 0.82)
 
   const channelNodeIdx = {}
   priority.forEach((ch, i) => {
@@ -103,7 +103,7 @@ const sankey = computed(() => {
       sources.push(channelIdx)
       targets.push(deliveredIdx)
       values.push(delivered)
-      linkColors.push('#1A349744')
+      linkColors.push('#03985544')
     }
 
     // channel → Failed (only for the last channel; earlier failures cascade)
@@ -111,7 +111,7 @@ const sankey = computed(() => {
       sources.push(channelIdx)
       targets.push(failedIdx)
       values.push(leftover)
-      linkColors.push('#85A0FD44')
+      linkColors.push('#D92D2044')
       terminalFailed = leftover
     }
 
@@ -128,11 +128,11 @@ const sankey = computed(() => {
   topReasons.forEach((r, i) => {
     const scaled = Math.round((r.count / reasonSum) * terminalFailed)
     if (scaled <= 0) return
-    const idx = addNode(r.label, '#5E7BFC', xReason, Math.min(0.98, reasonBaseY + i * reasonStep))
+    const idx = addNode(r.label, '#B42318', xReason, Math.min(0.98, reasonBaseY + i * reasonStep))
     sources.push(failedIdx)
     targets.push(idx)
     values.push(scaled)
-    linkColors.push('#5E7BFC44')
+    linkColors.push('#B4231844')
   })
 
   return { labels, colors, xs, ys, sources, targets, values, linkColors }
