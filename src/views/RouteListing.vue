@@ -70,10 +70,27 @@ function openAnalytics(route) {
 function toggleStatus(row) {
   row.status = row.status === 'active' ? 'paused' : 'active'
 }
+
+const activeMenuId = ref(null)
+const menuPos = ref({ top: 0, left: 0 })
+
+function toggleMenu(id, event) {
+  if (activeMenuId.value === id) {
+    activeMenuId.value = null
+    return
+  }
+  const rect = event.currentTarget.getBoundingClientRect()
+  menuPos.value = { top: rect.bottom + 4, left: rect.right - 160 }
+  activeMenuId.value = id
+}
+
+function closeMenu() {
+  activeMenuId.value = null
+}
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-6" @click="closeMenu">
     <PageHeader title="Smart Routing" :tabs="tabs" />
 
     <!-- Default route section -->
@@ -99,12 +116,7 @@ function toggleStatus(row) {
               </svg>
               View Analytics
             </button>
-            <button class="btn-ghost !p-2" title="Refresh">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" />
-              </svg>
-            </button>
-            <button class="btn-ghost !p-2" title="More">
+            <button class="btn-ghost !p-2" title="More" @click.stop="toggleMenu(row.id, $event)">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="12" cy="5" r="1.5" />
                 <circle cx="12" cy="12" r="1.5" />
@@ -159,12 +171,7 @@ function toggleStatus(row) {
               </svg>
               View Analytics
             </button>
-            <button class="btn-ghost !p-2" title="Refresh">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" />
-              </svg>
-            </button>
-            <button class="btn-ghost !p-2" title="More">
+            <button class="btn-ghost !p-2" title="More" @click.stop="toggleMenu(row.id, $event)">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="12" cy="5" r="1.5" />
                 <circle cx="12" cy="12" r="1.5" />
@@ -175,5 +182,22 @@ function toggleStatus(row) {
         </template>
       </DataTable>
     </section>
+
+    <!-- Shared dropdown menu (teleported to body to escape overflow-x-auto) -->
+    <Teleport to="body">
+      <div
+        v-if="activeMenuId"
+        :style="{ position: 'fixed', top: menuPos.top + 'px', left: menuPos.left + 'px' }"
+        class="z-50 w-40 rounded-lg border border-surface-border bg-white py-1 shadow-md"
+        @click.stop
+      >
+        <button class="flex w-full items-center px-3 py-2 text-body text-ink hover:bg-surface-muted" @click="closeMenu()">
+          Route Preview
+        </button>
+        <button class="flex w-full items-center px-3 py-2 text-body text-ink hover:bg-surface-muted" @click="closeMenu()">
+          Edit Route
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>
