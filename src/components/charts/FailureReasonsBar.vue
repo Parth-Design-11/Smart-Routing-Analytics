@@ -19,7 +19,7 @@ const traces = computed(() => [
     x: sorted.value.map((r) => r.count),
     marker: {
       color: sorted.value.map((r) =>
-        r.key === 'inactive-template' ? '#f79009' : '#d92d20',
+        r.key === 'inactive-template' ? '#5E7BFC' : '#375DFB',
       ),
       line: { width: 0 },
     },

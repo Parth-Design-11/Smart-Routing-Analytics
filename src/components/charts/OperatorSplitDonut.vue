@@ -7,7 +7,7 @@ const props = defineProps({
   height: { type: [String, Number], default: 260 },
 })
 
-const COLORS = ['#1570ef', '#7839ee', '#12b76a', '#f79009', '#d92d20']
+const COLORS = ['#375DFB', '#5E7BFC', '#85A0FD', '#ADC5FE', '#D4DAFF']
 
 const entries = computed(() => props.operators.filter((o) => o.count > 0))
 

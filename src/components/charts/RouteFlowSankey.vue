@@ -20,7 +20,7 @@ const props = defineProps({
 })
 
 const CHANNEL_LABEL = { sms: 'SMS', rcs: 'RCS', tc: 'TrueCaller' }
-const CHANNEL_COLOR = { sms: '#1570ef', rcs: '#7839ee', tc: '#12b76a' }
+const CHANNEL_COLOR = { sms: '#375DFB', rcs: '#85A0FD', tc: '#ADC5FE' }
 
 const sankey = computed(() => {
   const labels = []
@@ -56,10 +56,10 @@ const sankey = computed(() => {
   const xOutcome = 0.82
   const xReason = 0.999
 
-  const submittedIdx = addNode('Submitted', '#1c73e8', xSubmitted, 0.5)
+  const submittedIdx = addNode('Submitted', '#375DFB', xSubmitted, 0.5)
   // Delivered sits above, Failed below, so their links separate visually.
-  const deliveredIdx = addNode('Delivered', '#108c3d', xOutcome, 0.15)
-  const failedIdx = addNode('Failed', '#912018', xOutcome, 0.82)
+  const deliveredIdx = addNode('Delivered', '#1A3497', xOutcome, 0.15)
+  const failedIdx = addNode('Failed', '#85A0FD', xOutcome, 0.82)
 
   const channelNodeIdx = {}
   priority.forEach((ch, i) => {
@@ -103,7 +103,7 @@ const sankey = computed(() => {
       sources.push(channelIdx)
       targets.push(deliveredIdx)
       values.push(delivered)
-      linkColors.push('#10893d44')
+      linkColors.push('#1A349744')
     }
 
     // channel → Failed (only for the last channel; earlier failures cascade)
@@ -111,7 +111,7 @@ const sankey = computed(() => {
       sources.push(channelIdx)
       targets.push(failedIdx)
       values.push(leftover)
-      linkColors.push('#d92d2044')
+      linkColors.push('#85A0FD44')
       terminalFailed = leftover
     }
 
@@ -128,11 +128,11 @@ const sankey = computed(() => {
   topReasons.forEach((r, i) => {
     const scaled = Math.round((r.count / reasonSum) * terminalFailed)
     if (scaled <= 0) return
-    const idx = addNode(r.label, '#b42318', xReason, Math.min(0.98, reasonBaseY + i * reasonStep))
+    const idx = addNode(r.label, '#5E7BFC', xReason, Math.min(0.98, reasonBaseY + i * reasonStep))
     sources.push(failedIdx)
     targets.push(idx)
     values.push(scaled)
-    linkColors.push('#b4231844')
+    linkColors.push('#5E7BFC44')
   })
 
   return { labels, colors, xs, ys, sources, targets, values, linkColors }

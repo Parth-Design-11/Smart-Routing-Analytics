@@ -12,7 +12,7 @@ const traces = computed(() => [
     type: 'bar',
     x: props.buckets.map((b) => b.label),
     y: props.buckets.map((b) => b.count),
-    marker: { color: '#1c73e8', line: { width: 0 } },
+    marker: { color: '#375DFB', line: { width: 0 } },
     hovertemplate: '<b>≤ %{x}</b><br>%{y:,.0f} messages<extra></extra>',
     text: props.buckets.map((b) => (b.count > 0 ? b.count.toLocaleString() : '')),
     textposition: 'outside',
