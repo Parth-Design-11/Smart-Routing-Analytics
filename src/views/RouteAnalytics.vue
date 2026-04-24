@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import PageHeader from '@/components/layout/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
 import KpiCard from '@/components/ui/KpiCard.vue'
@@ -17,8 +16,6 @@ import SenderTemplateMatrix from '@/components/charts/SenderTemplateMatrix.vue'
 import FailureReasonsBar from '@/components/charts/FailureReasonsBar.vue'
 import LatencyHistogram from '@/components/charts/LatencyHistogram.vue'
 
-import RouteConfigSummary from '@/components/analytics/RouteConfigSummary.vue'
-
 import { useFiltersStore } from '@/stores/filters'
 import { getRouteById, ROUTE_TYPE_META } from '@/mock/routes'
 import { generateRouteMetrics } from '@/mock/generateMetrics'
@@ -32,11 +29,6 @@ const routeData = computed(() => getRouteById(route.params.id))
 const metrics = computed(() =>
   routeData.value ? generateRouteMetrics(routeData.value.id, store.dateRange) : null,
 )
-
-const tabs = [
-  { label: 'Routes', to: '/routes' },
-  { label: 'Analytics', to: '/analytics' },
-]
 
 // Aggregate per-channel totals across all time buckets for Sankey/Priority.
 const perChannelTotals = computed(() => {
@@ -160,44 +152,31 @@ const noPriorData = computed(
   </div>
 
   <div v-else class="space-y-6">
-    <PageHeader title="Smart Routing" :tabs="tabs" />
-
-    <!-- Breadcrumb -->
-    <button
-      @click="router.push('/routes')"
-      class="flex items-center gap-1 text-caption text-ink-muted hover:text-ink"
-    >
-      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="m15 18-6-6 6-6" />
-      </svg>
-      Back to routes
-    </button>
-
     <!-- Route header -->
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div class="space-y-1">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <button
+            @click="router.push('/routes')"
+            class="flex items-center justify-center text-ink-muted hover:text-ink"
+            aria-label="Back to routes"
+          >
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 12H5M12 5l-7 7 7 7" />
+            </svg>
+          </button>
           <h2 class="text-section-heading text-ink">{{ routeData.name }}</h2>
           <StatusPill :tone="routeData.status === 'active' ? 'success' : 'warning'">
             {{ routeData.status === 'active' ? 'Active' : 'Paused' }}
           </StatusPill>
         </div>
-        <p class="text-caption text-ink-muted">
+        <p class="pl-7 text-caption text-ink-muted">
           {{ routeData.enterprise }} · {{ ROUTE_TYPE_META[routeData.type].label }} · SMPP
           {{ routeData.smppAccount }}
         </p>
       </div>
       <div class="flex items-center gap-3">
         <DateRangePicker />
-        <label class="flex items-center gap-2 text-caption text-ink-muted">
-          <input
-            type="checkbox"
-            :checked="store.comparePeriod"
-            @change="store.setComparePeriod($event.target.checked)"
-            class="h-4 w-4 rounded border-surface-border text-brand-blue focus:ring-brand-blue"
-          />
-          Compare to previous period
-        </label>
       </div>
     </div>
 
@@ -288,10 +267,7 @@ const noPriorData = computed(
       No prior-period data for comparison — deltas are hidden.
     </div>
 
-    <!-- Route config summary -->
-    <RouteConfigSummary :route="routeData" />
-
-    <!-- Empty state for new/no-traffic routes -->
+<!-- Empty state for new/no-traffic routes -->
     <div v-if="edgeFlags.isNewRoute" class="card p-6">
       <EmptyState
         title="No messages routed yet"

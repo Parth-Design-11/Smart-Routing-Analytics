@@ -8,9 +8,9 @@ const props = defineProps({
 })
 
 const CHANNEL_META = {
-  rcs: { label: 'RCS', color: '#7839ee' },
-  tc: { label: 'TrueCaller', color: '#12b76a' },
-  sms: { label: 'SMS', color: '#1570ef' },
+  rcs: { label: 'RCS', color: '#85A0FD' },
+  tc: { label: 'TrueCaller', color: '#ADC5FE' },
+  sms: { label: 'SMS', color: '#375DFB' },
 }
 
 const activeChannels = computed(() => {

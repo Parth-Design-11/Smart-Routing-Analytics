@@ -9,10 +9,10 @@ const props = defineProps({
 })
 
 const COLORS = {
-  sms: '#1570ef',
-  'rcs+sms': '#7839ee',
-  'tc+sms': '#12b76a',
-  multi: '#f79009',
+  sms: '#375DFB',
+  'rcs+sms': '#5E7BFC',
+  'tc+sms': '#85A0FD',
+  multi: '#ADC5FE',
 }
 
 const entries = computed(() =>

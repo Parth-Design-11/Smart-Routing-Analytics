@@ -33,15 +33,6 @@ const channelOptions = [
         @update:model-value="store.setChannel"
         :options="channelOptions"
       />
-      <label class="flex items-center gap-2 text-caption text-ink-muted">
-        <input
-          type="checkbox"
-          :checked="store.comparePeriod"
-          @change="store.setComparePeriod($event.target.checked)"
-          class="h-4 w-4 rounded border-surface-border text-brand-blue focus:ring-brand-blue"
-        />
-        Compare to previous period
-      </label>
     </div>
   </div>
 </template>

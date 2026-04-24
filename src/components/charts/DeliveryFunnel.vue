@@ -36,7 +36,7 @@ const traces = computed(() => [
     textinfo: 'value+percent initial',
     textfont: { color: '#ffffff', size: 12 },
     marker: {
-      color: ['#1c73e8', '#3d6ede', '#12b76a', '#f79009', '#108c3d'],
+      color: ['#375DFB', '#5E7BFC', '#1A3497', '#85A0FD', '#2447C9'],
       line: { color: '#ffffff', width: 1 },
     },
     connector: { line: { color: '#e4e7ec' } },

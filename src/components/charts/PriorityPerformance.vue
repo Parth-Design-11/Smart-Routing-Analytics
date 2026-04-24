@@ -10,7 +10,7 @@ const props = defineProps({
   height: { type: [String, Number], default: 200 },
 })
 
-const CHANNEL_COLOR = { sms: '#1570ef', rcs: '#7839ee', tc: '#12b76a' }
+const CHANNEL_COLOR = { sms: '#375DFB', rcs: '#85A0FD', tc: '#ADC5FE' }
 const CHANNEL_LABEL = { sms: 'SMS', rcs: 'RCS', tc: 'TrueCaller' }
 
 const stages = computed(() => {
