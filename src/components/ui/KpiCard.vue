@@ -4,6 +4,7 @@ import { computed } from 'vue'
 const props = defineProps({
   label: { type: String, required: true },
   value: { type: [String, Number], required: true },
+  subValue: { type: String, default: null },
   delta: { type: Number, default: null }, // % change vs previous
   deltaLabel: { type: String, default: 'vs previous period' },
   help: { type: String, default: '' },
@@ -45,6 +46,8 @@ const formattedDelta = computed(() => {
     <div v-else class="text-[28px] font-semibold leading-tight text-ink">
       {{ value }}
     </div>
+
+    <div v-if="subValue" class="text-caption text-ink-muted">{{ subValue }}</div>
 
     <div v-if="delta != null" class="flex items-center gap-1 text-caption">
       <span :class="deltaClass" class="font-medium">

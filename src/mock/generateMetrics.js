@@ -2,10 +2,44 @@
 // stable across navigation; edge-case routes get special-cased profiles.
 
 import { getBucketTimestamps } from '@/utils/dateRange'
-import { FAILURE_REASONS, OPERATORS } from './failureReasons'
+import { FAILURE_REASONS, OPERATORS, OPERATOR_CONNECTS } from './failureReasons'
 import { ROUTE_TYPE_META, getRouteById, getSmartRoutes } from './routes'
 import { getSendersForRoute, getTemplatesForRoute } from './senders'
 import { hashSeed, mulberry32, seededRandom } from './prng'
+
+// Channel-specific failure reason weights — different channels fail for different reasons.
+const CHANNEL_FAILURE_WEIGHTS = {
+  tc: {
+    'agent-not-found':     0.32,
+    'handset-unreachable': 0.18,
+    'dnd':                 0.14,
+    'inactive-template':   0.16,
+    'operator-rejected':   0.08,
+    'timeout':             0.07,
+    'invalid-number':      0.03,
+    'other':               0.02,
+  },
+  rcs: {
+    'agent-not-found':     0.28,
+    'inactive-template':   0.22,
+    'handset-unreachable': 0.16,
+    'operator-rejected':   0.14,
+    'dnd':                 0.10,
+    'timeout':             0.06,
+    'invalid-number':      0.02,
+    'other':               0.02,
+  },
+  sms: {
+    'handset-unreachable': 0.30,
+    'dnd':                 0.24,
+    'operator-rejected':   0.18,
+    'invalid-number':      0.12,
+    'timeout':             0.08,
+    'agent-not-found':     0.00,
+    'inactive-template':   0.05,
+    'other':               0.03,
+  },
+}
 
 // Per-route performance profile. Edge cases override the baseline.
 function getProfile(route) {
@@ -191,6 +225,45 @@ export function generateRouteMetrics(routeId, dateRange) {
     }
   })
 
+  // Per-channel failure reason breakdown.
+  const channelFailureReasons = {}
+  channelKeys.forEach((ch) => {
+    const chAttempted = series.reduce((a, s) => a + (s.perChannel[ch]?.attempted || 0), 0)
+    const chDelivered = series.reduce((a, s) => a + (s.perChannel[ch]?.delivered || 0), 0)
+    const chFailed = Math.max(0, chAttempted - chDelivered)
+    const weights = CHANNEL_FAILURE_WEIGHTS[ch] || {}
+    channelFailureReasons[ch] = FAILURE_REASONS
+      .filter((r) => (weights[r.key] || 0) > 0)
+      .map((r) => {
+        let w = weights[r.key] || 0
+        if (route.edgeCase === 'inactive-template' && r.key === 'inactive-template') w = Math.min(1, w * 3)
+        if (route.edgeCase === 'all-failing' && r.key === 'operator-rejected') w = Math.min(1, w * 2.5)
+        return { key: r.key, label: r.label, count: Math.round(chFailed * w) }
+      })
+      .sort((a, b) => b.count - a.count)
+  })
+
+  // Connect-level SMS delivery breakdown (for SMS distribution drill-down).
+  const connectRand = seededRandom(`${routeId}|connects`)
+  const connectTotals = OPERATORS.reduce((acc, op) => {
+    const connects = OPERATOR_CONNECTS[op.key] || []
+    if (connects.length === 0) {
+      acc[op.key] = []
+      return acc
+    }
+    const opCount = operatorTotals.find((o) => o.key === op.key)?.count || 0
+    // Distribute the operator's volume across its connects with slight variation.
+    const weights = connects.map(() => 0.3 + connectRand() * 0.7)
+    const wSum = weights.reduce((a, w) => a + w, 0)
+    acc[op.key] = connects.map((name, i) => ({
+      key: name,
+      label: name,
+      count: Math.round(opCount * (weights[i] / wSum)),
+      deliveryRate: 85 + connectRand() * 13,
+    }))
+    return acc
+  }, {})
+
   // Previous-period deltas.
   const prevSeed = seededRandom(`${routeId}|${dateRange}|prev`)
   const deliveryDelta = (rand() - 0.5) * 4
@@ -215,7 +288,9 @@ export function generateRouteMetrics(routeId, dateRange) {
     },
     split,
     reasonTotals,
+    channelFailureReasons,
     operatorTotals,
+    connectTotals,
     operatorChannelMatrix,
     senders,
     templates,
@@ -223,40 +298,6 @@ export function generateRouteMetrics(routeId, dateRange) {
     latencyHistogram,
     profile,
   }
-}
-
-// Channel-specific failure reason weights — different channels fail for different reasons.
-const CHANNEL_FAILURE_WEIGHTS = {
-  tc: {
-    'agent-not-found':    0.32,
-    'handset-unreachable': 0.18,
-    'dnd':                 0.14,
-    'inactive-template':   0.16,
-    'operator-rejected':   0.08,
-    'timeout':             0.07,
-    'invalid-number':      0.03,
-    'other':               0.02,
-  },
-  rcs: {
-    'agent-not-found':    0.28,
-    'inactive-template':   0.22,
-    'handset-unreachable': 0.16,
-    'operator-rejected':   0.14,
-    'dnd':                 0.10,
-    'timeout':             0.06,
-    'invalid-number':      0.02,
-    'other':               0.02,
-  },
-  sms: {
-    'handset-unreachable': 0.30,
-    'dnd':                 0.24,
-    'operator-rejected':   0.18,
-    'invalid-number':      0.12,
-    'timeout':             0.08,
-    'agent-not-found':     0.00,
-    'inactive-template':   0.05,
-    'other':               0.03,
-  },
 }
 
 export function generateOverallMetrics(dateRange) {

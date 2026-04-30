@@ -8,18 +8,14 @@ import KpiCard from '@/components/ui/KpiCard.vue'
 import DateRangePicker from '@/components/ui/DateRangePicker.vue'
 
 import VolumeTrend from '@/components/charts/VolumeTrend.vue'
-import DeliveryFunnel from '@/components/charts/DeliveryFunnel.vue'
 import RouteFlowSankey from '@/components/charts/RouteFlowSankey.vue'
-import PriorityPerformance from '@/components/charts/PriorityPerformance.vue'
-import OperatorSplitDonut from '@/components/charts/OperatorSplitDonut.vue'
-import SenderTemplateMatrix from '@/components/charts/SenderTemplateMatrix.vue'
 import FailureReasonsBar from '@/components/charts/FailureReasonsBar.vue'
-import LatencyHistogram from '@/components/charts/LatencyHistogram.vue'
+import SmsDeliveryDistribution from '@/components/charts/SmsDeliveryDistribution.vue'
 
 import { useFiltersStore } from '@/stores/filters'
 import { getRouteById, ROUTE_TYPE_META } from '@/mock/routes'
 import { generateRouteMetrics } from '@/mock/generateMetrics'
-import { formatNumber, formatPercent, formatLatencyMs } from '@/utils/format'
+import { formatNumber, formatPercent } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,7 +26,7 @@ const metrics = computed(() =>
   routeData.value ? generateRouteMetrics(routeData.value.id, store.dateRange) : null,
 )
 
-// Aggregate per-channel totals across all time buckets for Sankey/Priority.
+// Aggregate per-channel totals across all time buckets.
 const perChannelTotals = computed(() => {
   if (!metrics.value) return {}
   const acc = {}
@@ -44,53 +40,30 @@ const perChannelTotals = computed(() => {
   return acc
 })
 
-// Adaptive funnel stages per route type.
-const funnelStages = computed(() => {
-  if (!metrics.value) return []
-  const r = routeData.value
-  const t = metrics.value.totals
-  const pc = perChannelTotals.value
-  const smsC = pc.sms || { attempted: 0, delivered: 0 }
-  const rcsC = pc.rcs || { attempted: 0, delivered: 0 }
-  const tcC = pc.tc || { attempted: 0, delivered: 0 }
-  const fallbackDelivered = Math.round(t.fallbackTriggered * 0.9)
-
-  if (r.type === 'sms') {
-    return [
-      { label: 'Submitted', value: t.submitted },
-      { label: 'Routed to operator', value: smsC.attempted },
-      { label: 'Delivered', value: smsC.delivered },
-    ]
-  }
-  if (r.type === 'rcs+sms') {
-    return [
-      { label: 'Submitted', value: t.submitted },
-      { label: 'RCS agent matched', value: rcsC.attempted },
-      { label: 'RCS delivered', value: rcsC.delivered },
-      { label: 'SMS fallback', value: t.fallbackTriggered },
-      { label: 'SMS delivered', value: fallbackDelivered },
-    ]
-  }
-  if (r.type === 'tc+sms') {
-    return [
-      { label: 'Submitted', value: t.submitted },
-      { label: 'VMN matched', value: tcC.attempted },
-      { label: 'TC delivered', value: tcC.delivered },
-      { label: 'SMS fallback', value: t.fallbackTriggered },
-      { label: 'SMS delivered', value: fallbackDelivered },
-    ]
-  }
-  // multi
-  return [
-    { label: 'Submitted', value: t.submitted },
-    { label: 'P1 attempt', value: rcsC.attempted },
-    { label: 'P1 delivered', value: rcsC.delivered },
-    { label: 'P2 attempt', value: tcC.attempted },
-    { label: 'P2 delivered', value: tcC.delivered },
-    { label: 'SMS fallback', value: t.fallbackTriggered },
-    { label: 'SMS delivered', value: fallbackDelivered },
-  ]
+// Channels present on this route, in priority order.
+const routeChannels = computed(() => {
+  if (!routeData.value) return []
+  return routeData.value.priority || ROUTE_TYPE_META[routeData.value.type]?.channels || []
 })
+
+const CHANNEL_LABEL = { tc: 'TrueCaller', rcs: 'RCS', sms: 'SMS' }
+const CHANNEL_ICON_PATH = {
+  tc:  'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z',
+  rcs: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z',
+  sms: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z',
+}
+
+// Fallback Efficiency Ratio: primary channel delivered / total delivered × 100.
+const fallbackEfficiencyRatio = computed(() => {
+  if (!metrics.value || !routeData.value) return null
+  const primaryCh = routeChannels.value[0]
+  if (!primaryCh || routeChannels.value.length < 2) return null
+  const primaryDelivered = perChannelTotals.value[primaryCh]?.delivered || 0
+  const totalDelivered = metrics.value.totals.delivered || 1
+  return (primaryDelivered / totalDelivered) * 100
+})
+
+const isSmsOnly = computed(() => routeData.value?.type === 'sms')
 
 // Edge-case flags (drive banners and widget visibility).
 const edgeFlags = computed(() => {
@@ -103,33 +76,18 @@ const edgeFlags = computed(() => {
     isLowVolume: m && m.totals.submitted > 0 && m.totals.submitted < 100,
     isAllFailing: m && m.kpis.deliveryRate < 5 && m.totals.submitted > 0,
     isConfigChanged: r?.edgeCase === 'config-changed',
-    hasInactiveTemplates: r?.edgeCase === 'inactive-template',
-    fallbackNeverTriggered: m && m.totals.fallbackTriggered === 0 && !edgeFlagIsSmsOnly(r),
   }
 })
 
-function edgeFlagIsSmsOnly(r) {
-  return r?.type === 'sms'
-}
-
-const showFallbackWidgets = computed(() =>
-  !edgeFlags.value.isSmsOnly && !edgeFlags.value.fallbackNeverTriggered,
-)
-
-const showPriorityChart = computed(() => routeData.value?.type === 'multi')
-
-/** Shown above the Sankey: primary channel success vs SMS fallback (non–SMS-only routes). */
+/** Shown above the Sankey: primary channel success vs SMS fallback. */
 const routeFlowSummary = computed(() => {
   if (!metrics.value || !routeData.value) return null
   if (edgeFlags.value.isSmsOnly) return null
-  if (edgeFlags.value.fallbackNeverTriggered) {
-    return { variant: 'all-primary' }
-  }
+  const fallbackTriggered = metrics.value.totals.fallbackTriggered || 0
+  if (fallbackTriggered === 0) return { variant: 'all-primary' }
   const t = metrics.value.totals
-  const submitted = t.submitted || 0
-  const primaryPct = submitted
-    ? ((t.delivered - t.fallbackTriggered * 0.9) / submitted) * 100
-    : 0
+  const submitted = t.submitted || 1
+  const primaryPct = ((t.delivered - fallbackTriggered * 0.9) / submitted) * 100
   return {
     variant: 'split',
     primaryPct,
@@ -137,7 +95,7 @@ const routeFlowSummary = computed(() => {
   }
 })
 
-// Compare-period: flag insufficient prior data
+// Compare-period: flag insufficient prior data.
 const noPriorData = computed(
   () => store.comparePeriod && metrics.value && metrics.value.totals.submitted < 1000,
 )
@@ -152,35 +110,77 @@ const noPriorData = computed(
   </div>
 
   <div v-else class="space-y-6">
-    <!-- Route header -->
+    <!-- ── Header ─────────────────────────────────────────────────────── -->
     <div class="flex flex-wrap items-start justify-between gap-4">
-      <div class="space-y-1">
-        <div class="flex items-center gap-2">
+      <div class="space-y-2">
+        <!-- Breadcrumb -->
+        <nav class="flex items-center gap-1.5 text-caption text-ink-muted">
           <button
+            class="hover:text-ink hover:underline"
             @click="router.push('/routes')"
-            class="flex items-center justify-center text-ink-muted hover:text-ink"
-            aria-label="Back to routes"
           >
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M19 12H5M12 5l-7 7 7 7" />
-            </svg>
+            Smart Routes
           </button>
-          <h2 class="text-section-heading text-ink">{{ routeData.name }}</h2>
+          <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+          <span class="text-ink">{{ routeData.name }}</span>
+        </nav>
+
+        <!-- Title + status -->
+        <div class="flex items-center gap-2">
+          <h2 class="text-section-heading text-ink">{{ routeData.name }} Analytics</h2>
           <StatusPill :tone="routeData.status === 'active' ? 'success' : 'warning'">
             {{ routeData.status === 'active' ? 'Active' : 'Paused' }}
           </StatusPill>
         </div>
-        <p class="pl-7 text-caption text-ink-muted">
-          {{ routeData.enterprise }} · {{ ROUTE_TYPE_META[routeData.type].label }} · SMPP
-          {{ routeData.smppAccount }}
-        </p>
+
+        <!-- Context bar -->
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Channels configured -->
+          <div class="flex items-center gap-1 rounded-full border border-surface-border bg-surface px-3 py-1">
+            <span class="mr-1 text-caption text-ink-muted">Channels:</span>
+            <template v-for="(ch, idx) in routeChannels" :key="ch">
+              <span class="text-caption font-medium text-ink">{{ CHANNEL_LABEL[ch] || ch }}</span>
+              <svg
+                v-if="idx < routeChannels.length - 1"
+                class="h-3 w-3 text-ink-muted"
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              >
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </template>
+          </div>
+
+          <!-- Enterprise -->
+          <div class="flex items-center gap-1.5 rounded-full border border-surface-border bg-surface px-3 py-1">
+            <svg class="h-3.5 w-3.5 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            <span class="text-caption text-ink-muted">Enterprise:</span>
+            <span class="text-caption font-medium text-ink">{{ routeData.enterprise }}</span>
+          </div>
+
+          <!-- Source / SMPP -->
+          <div class="flex items-center gap-1.5 rounded-full border border-surface-border bg-surface px-3 py-1">
+            <svg class="h-3.5 w-3.5 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+            </svg>
+            <span class="text-caption text-ink-muted">Source:</span>
+            <span class="text-caption font-medium text-ink">{{ routeData.smppAccount || '—' }}</span>
+          </div>
+        </div>
       </div>
-      <div class="flex items-center gap-3">
+
+      <!-- Date range picker -->
+      <div class="flex items-center gap-3 pt-1">
         <DateRangePicker />
       </div>
     </div>
 
-    <!-- Edge-case banners -->
+    <div class="border-t border-surface-border" aria-hidden="true" />
+
+    <!-- ── Edge-case banners ───────────────────────────────────────────── -->
     <div
       v-if="edgeFlags.isAllFailing"
       class="flex items-start gap-3 rounded-large border border-danger/30 bg-danger-soft px-4 py-3"
@@ -231,23 +231,6 @@ const noPriorData = computed(
     </div>
 
     <div
-      v-if="edgeFlags.hasInactiveTemplates"
-      class="flex items-start gap-3 rounded-large border border-warning/30 bg-warning-soft px-4 py-3"
-    >
-      <svg class="mt-0.5 h-5 w-5 text-warning-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 9v4m0 4h.01M10.3 3.9 2 19a2 2 0 0 0 1.7 3h16.6A2 2 0 0 0 22 19L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-      </svg>
-      <div>
-        <p class="text-body font-semibold text-warning-text">
-          {{ routeData.inactiveTemplates }} template(s) in this route are inactive
-        </p>
-        <p class="text-caption text-warning-text/80">
-          Messages using them will fail. Review the Sender × Template matrix above.
-        </p>
-      </div>
-    </div>
-
-    <div
       v-if="edgeFlags.isLowVolume"
       class="flex items-start gap-2 rounded-large border border-surface-border bg-surface-muted px-4 py-3 text-caption text-ink-subtle"
     >
@@ -267,7 +250,7 @@ const noPriorData = computed(
       No prior-period data for comparison — deltas are hidden.
     </div>
 
-<!-- Empty state for new/no-traffic routes -->
+    <!-- Empty state for new/no-traffic routes -->
     <div v-if="edgeFlags.isNewRoute" class="card p-6">
       <EmptyState
         title="No messages routed yet"
@@ -276,46 +259,79 @@ const noPriorData = computed(
     </div>
 
     <template v-else>
-      <!-- KPI row -->
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <KpiCard
-          label="Messages submitted"
-          :value="formatNumber(metrics.kpis.submitted)"
-          :delta="noPriorData ? null : metrics.kpis.volumeDelta"
-        />
-        <KpiCard
-          label="Delivery rate"
-          :value="formatPercent(metrics.kpis.deliveryRate)"
-          :delta="noPriorData ? null : metrics.kpis.deliveryDelta"
-        />
-        <KpiCard
-          v-if="!edgeFlags.isSmsOnly"
-          label="Fallback triggered"
-          :value="formatPercent(metrics.kpis.fallbackRate)"
-          :delta="noPriorData ? null : metrics.kpis.fallbackDelta"
-        />
-        <KpiCard
-          label="Avg latency"
-          :value="formatLatencyMs(metrics.kpis.avgLatencyMs)"
-          :delta="noPriorData ? null : metrics.kpis.latencyDelta"
-        />
-        <KpiCard
-          label="Active templates"
-          :value="`${metrics.templates.filter((t) => t.active).length} / ${metrics.templates.length}`"
-          :delta="null"
-          help="Active templates ÷ total templates in this route"
-        />
+      <!-- ── Section A: Summary Count Tiles ──────────────────────────── -->
+      <div>
+        <h3 class="mb-3 text-sub-heading text-ink">Performance Summary</h3>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <KpiCard
+            label="Total Submitted"
+            :value="formatNumber(metrics.totals.submitted)"
+            :delta="noPriorData ? null : metrics.kpis.volumeDelta"
+          />
+          <KpiCard
+            label="Delivered"
+            :value="formatNumber(metrics.totals.delivered)"
+            :sub-value="formatPercent(metrics.totals.submitted ? (metrics.totals.delivered / metrics.totals.submitted) * 100 : 0) + ' of submitted'"
+            :delta="noPriorData ? null : metrics.kpis.deliveryDelta"
+          />
+          <KpiCard
+            label="Failed"
+            :value="formatNumber(metrics.totals.failed)"
+            :sub-value="formatPercent(metrics.totals.submitted ? (metrics.totals.failed / metrics.totals.submitted) * 100 : 0) + ' of submitted'"
+            :delta="null"
+          />
+        </div>
       </div>
 
-      <!-- Route Flow Sankey (hero viz) -->
-      <div class="card p-4">
-        <div class="mb-2 flex items-center justify-between">
-          <div>
-            <h3 class="text-sub-heading text-ink">Route flow</h3>
-            <p class="text-caption text-ink-muted">
-              End-to-end message flow across configured channels and failure reasons
+      <!-- ── Section B: Channel Delivery & Efficiency ─────────────────── -->
+      <div>
+        <h3 class="mb-3 text-sub-heading text-ink">Channel Delivery &amp; Efficiency</h3>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <!-- Total Submitted to SMS Inbound -->
+          <div class="card p-4">
+            <p class="text-caption text-ink-muted">Total Submitted (Inbound)</p>
+            <p class="mt-1 text-display-md text-ink">{{ formatNumber(metrics.totals.submitted) }}</p>
+            <p class="mt-0.5 text-caption text-ink-subtle">Gross messages entering routing</p>
+          </div>
+
+          <!-- Per-channel delivered tiles -->
+          <template v-for="ch in routeChannels.filter(c => c !== 'sms' || isSmsOnly)" :key="ch">
+            <div v-if="perChannelTotals[ch]" class="card p-4">
+              <p class="text-caption text-ink-muted">Delivered on {{ CHANNEL_LABEL[ch] || ch }}</p>
+              <p class="mt-1 text-display-md text-ink">{{ formatNumber(perChannelTotals[ch]?.delivered || 0) }}</p>
+              <p class="mt-0.5 text-caption text-ink-subtle">
+                {{ formatPercent(metrics.totals.delivered ? (perChannelTotals[ch]?.delivered || 0) / metrics.totals.delivered * 100 : 0) }} of delivered
+              </p>
+            </div>
+          </template>
+
+          <!-- SMS delivered (always shown if not already captured above) -->
+          <div v-if="!isSmsOnly && perChannelTotals.sms" class="card p-4">
+            <p class="text-caption text-ink-muted">Delivered on SMS</p>
+            <p class="mt-1 text-display-md text-ink">{{ formatNumber(perChannelTotals.sms?.delivered || 0) }}</p>
+            <p class="mt-0.5 text-caption text-ink-subtle">
+              {{ formatPercent(metrics.totals.delivered ? (perChannelTotals.sms?.delivered || 0) / metrics.totals.delivered * 100 : 0) }} of delivered
             </p>
           </div>
+
+          <!-- Fallback Efficiency Ratio (multi-channel only) -->
+          <div v-if="fallbackEfficiencyRatio !== null" class="card p-4">
+            <p class="text-caption text-ink-muted">Fallback Efficiency Ratio</p>
+            <p class="mt-1 text-display-md text-ink">{{ formatPercent(fallbackEfficiencyRatio) }}</p>
+            <p class="mt-0.5 text-caption text-ink-subtle">
+              Delivered on {{ CHANNEL_LABEL[routeChannels[0]] || routeChannels[0] }} (primary)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Chart A: Route Flow Sankey ───────────────────────────────── -->
+      <div class="card p-4">
+        <div class="mb-2">
+          <h3 class="text-sub-heading text-ink">Route Flow</h3>
+          <p class="text-caption text-ink-muted">
+            End-to-end message flow across configured channels and failure reasons
+          </p>
         </div>
         <RouteFlowSankey
           :route="routeData"
@@ -326,62 +342,40 @@ const noPriorData = computed(
         />
       </div>
 
-      <!-- Volume trend + Adaptive funnel -->
+      <!-- ── Chart D: Trend Graph + Chart B: Failure Pies ─────────────── -->
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div class="card p-4 lg:col-span-2">
-          <h3 class="mb-2 text-sub-heading text-ink">Volume over time</h3>
-          <VolumeTrend :series="metrics.series" />
-        </div>
-        <div class="card p-4">
-          <h3 class="mb-2 text-sub-heading text-ink">Delivery funnel</h3>
-          <DeliveryFunnel :stages="funnelStages" :height="340" />
-        </div>
-      </div>
-
-      <!-- Priority performance (multi-channel only) + Operator split -->
-      <div class="grid grid-cols-1 gap-4" :class="showPriorityChart ? 'lg:grid-cols-2' : ''">
-        <div v-if="showPriorityChart" class="card p-4">
-          <h3 class="mb-2 text-sub-heading text-ink">Priority performance</h3>
+          <h3 class="mb-1 text-sub-heading text-ink">Trend</h3>
           <p class="mb-3 text-caption text-ink-muted">
-            Share of messages delivered at each priority step
+            Message volume over time — Submitted, Delivered, Failed
           </p>
-          <PriorityPerformance
-            :route="routeData"
-            :per-channel-totals="perChannelTotals"
-            :height="220"
-          />
+          <VolumeTrend :series="metrics.series" :height="300" />
         </div>
         <div class="card p-4">
-          <h3 class="mb-2 text-sub-heading text-ink">
-            {{ edgeFlags.isSmsOnly ? 'Operator split' : 'SMS fallback operator split' }}
-          </h3>
-          <OperatorSplitDonut :operators="metrics.operatorTotals" />
+          <h3 class="mb-1 text-sub-heading text-ink">Failure Reasons</h3>
+          <p class="mb-3 text-caption text-ink-muted">
+            Breakdown by channel of why messages failed
+          </p>
+          <FailureReasonsBar
+            :channel-failure-reasons="metrics.channelFailureReasons"
+            :channels="routeChannels"
+            :height="300"
+          />
         </div>
       </div>
 
-      <!-- Sender × Template matrix + Failure reasons -->
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div class="card p-4 lg:col-span-2">
-          <h3 class="mb-2 text-sub-heading text-ink">Sender × Template performance</h3>
-          <p class="mb-2 text-caption text-ink-muted">
-            Delivery % per Sender ID / Template combination
-          </p>
-          <SenderTemplateMatrix
-            :senders="metrics.senders"
-            :templates="metrics.templates"
-            :matrix="metrics.senderTemplateMatrix"
-          />
-        </div>
-        <div class="card p-4">
-          <h3 class="mb-2 text-sub-heading text-ink">Failure reasons</h3>
-          <FailureReasonsBar :reasons="metrics.reasonTotals" :height="300" />
-        </div>
-      </div>
-
-      <!-- Latency histogram -->
+      <!-- ── Chart C: SMS Delivery Distribution ───────────────────────── -->
       <div class="card p-4">
-        <h3 class="mb-2 text-sub-heading text-ink">Latency distribution</h3>
-        <LatencyHistogram :buckets="metrics.latencyHistogram" />
+        <div class="mb-2">
+          <h3 class="text-sub-heading text-ink">SMS Delivery Distribution</h3>
+          <p class="text-caption text-ink-muted">
+            Delivered messages across telecom operators — click a bar to drill down into connects
+          </p>
+        </div>
+        <SmsDeliveryDistribution
+          :operator-totals="metrics.operatorTotals"
+          :connect-totals="metrics.connectTotals"
+        />
       </div>
     </template>
   </div>

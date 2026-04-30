@@ -9,6 +9,8 @@ const props = defineProps({
   height: { type: [String, Number], default: 320 },
 })
 
+const emit = defineEmits(['plotly-click'])
+
 const container = ref(null)
 let resizeObserver = null
 
@@ -74,6 +76,9 @@ function render() {
 
 onMounted(() => {
   render()
+  if (container.value) {
+    container.value.on('plotly_click', (evt) => emit('plotly-click', evt))
+  }
   if (typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver(() => {
       if (container.value) Plotly.Plots.resize(container.value)

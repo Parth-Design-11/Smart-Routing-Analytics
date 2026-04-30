@@ -10,8 +10,18 @@ export const FAILURE_REASONS = [
 ]
 
 export const OPERATORS = [
-  { key: 'airtel', label: 'Airtel', share: 0.34 },
-  { key: 'jio', label: 'Jio', share: 0.38 },
-  { key: 'vi', label: 'Vi', share: 0.21 },
-  { key: 'bsnl', label: 'BSNL', share: 0.07 },
+  { key: 'airtel', label: 'Airtel', share: 0.32 },
+  { key: 'jio', label: 'Jio', share: 0.36 },
+  { key: 'vi', label: 'Vi', share: 0.20 },
+  { key: 'bsnl', label: 'BSNL', share: 0.06 },
+  { key: 'unidentified', label: 'Unidentified', share: 0.06 },
 ]
+
+// Connect-level breakdown per telco (for SMS delivery drill-down).
+export const OPERATOR_CONNECTS = {
+  airtel: ['Airtel_Connect_1', 'Airtel_Connect_2'],
+  jio: ['Jio_Connect_1', 'Jio_Connect_2'],
+  vi: ['Vi_Connect_1'],
+  bsnl: ['BSNL_Connect_1'],
+  unidentified: [],
+}

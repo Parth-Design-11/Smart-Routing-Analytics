@@ -57,10 +57,13 @@ const sankey = computed(() => {
   const xOutcome = 0.82
   const xReason = 0.999
 
+  const DELIVERED_COLOR = '#12B76A'  // green
+  const FAILED_COLOR    = '#F04438'  // red
+
   const submittedIdx = addNode('Submitted', PRIMARY_COLOR, xSubmitted, 0.5)
   // Delivered sits above, Failed below, so their links separate visually.
-  const deliveredIdx = addNode('Delivered', monochromeScale[1], xOutcome, 0.15)
-  const failedIdx = addNode('Failed', monochromeScale[3], xOutcome, 0.82)
+  const deliveredIdx = addNode('Delivered', DELIVERED_COLOR, xOutcome, 0.15)
+  const failedIdx = addNode('Failed', FAILED_COLOR, xOutcome, 0.82)
 
   const channelNodeIdx = {}
   priority.forEach((ch, i) => {
@@ -104,7 +107,7 @@ const sankey = computed(() => {
       sources.push(channelIdx)
       targets.push(deliveredIdx)
       values.push(delivered)
-      linkColors.push(adjustOpacity(PRIMARY_COLOR, 0.34))
+      linkColors.push('rgba(18, 183, 106, 0.28)')   // green-tinted
     }
 
     // channel → Failed (only for the last channel; earlier failures cascade)
@@ -112,7 +115,7 @@ const sankey = computed(() => {
       sources.push(channelIdx)
       targets.push(failedIdx)
       values.push(leftover)
-      linkColors.push(adjustOpacity(PRIMARY_COLOR, 0.18))
+      linkColors.push('rgba(240, 68, 56, 0.22)')    // red-tinted
       terminalFailed = leftover
     }
 
@@ -129,11 +132,12 @@ const sankey = computed(() => {
   topReasons.forEach((r, i) => {
     const scaled = Math.round((r.count / reasonSum) * terminalFailed)
     if (scaled <= 0) return
-    const idx = addNode(r.label, monochromeScale[(i + 2) % monochromeScale.length], xReason, Math.min(0.98, reasonBaseY + i * reasonStep))
+    const reasonOpacity = 0.55 - i * 0.07
+    const idx = addNode(r.label, `rgba(240, 68, 56, ${Math.max(0.2, reasonOpacity)})`, xReason, Math.min(0.98, reasonBaseY + i * reasonStep))
     sources.push(failedIdx)
     targets.push(idx)
     values.push(scaled)
-    linkColors.push(adjustOpacity(PRIMARY_COLOR, 0.16))
+    linkColors.push('rgba(240, 68, 56, 0.16)')      // red-tinted for failure reasons
   })
 
   return { labels, colors, xs, ys, sources, targets, values, linkColors }
