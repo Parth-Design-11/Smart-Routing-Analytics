@@ -2,18 +2,12 @@
 import { computed } from 'vue'
 import PlotlyChart from './PlotlyChart.vue'
 import { ROUTE_TYPE_META } from '@/mock/routes'
+import { routeTypeColors, PRIMARY_COLOR } from '@/utils/chartColors'
 
 const props = defineProps({
   counts: { type: Object, required: true }, // { sms, 'rcs+sms', ... }
   height: { type: [String, Number], default: 260 },
 })
-
-const COLORS = {
-  sms: '#375DFB',
-  'rcs+sms': '#5E7BFC',
-  'tc+sms': '#85A0FD',
-  multi: '#ADC5FE',
-}
 
 const entries = computed(() =>
   Object.entries(props.counts).filter(([, v]) => v > 0),
@@ -26,7 +20,7 @@ const traces = computed(() => [
     values: entries.value.map(([, v]) => v),
     labels: entries.value.map(([t]) => ROUTE_TYPE_META[t]?.label || t),
     marker: {
-      colors: entries.value.map(([t]) => COLORS[t] || '#667085'),
+      colors: entries.value.map(([t]) => routeTypeColors[t] || PRIMARY_COLOR),
       line: { color: '#ffffff', width: 2 },
     },
     textinfo: 'percent',

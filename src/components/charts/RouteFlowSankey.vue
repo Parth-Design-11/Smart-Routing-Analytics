@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import PlotlyChart from './PlotlyChart.vue'
 import { ROUTE_TYPE_META } from '@/mock/routes'
 import { formatPercent } from '@/utils/format'
+import { adjustOpacity, channelColors, monochromeScale, PRIMARY_COLOR } from '@/utils/chartColors'
 
 // Hero viz. Builds a Sankey end-to-end for a single route.
 // Node layout is adaptive to route type.
@@ -20,7 +21,7 @@ const props = defineProps({
 })
 
 const CHANNEL_LABEL = { sms: 'SMS', rcs: 'RCS', tc: 'TrueCaller' }
-const CHANNEL_COLOR = { sms: '#375DFB', rcs: '#85A0FD', tc: '#ADC5FE' }
+const CHANNEL_COLOR = channelColors
 
 const sankey = computed(() => {
   const labels = []
@@ -56,10 +57,10 @@ const sankey = computed(() => {
   const xOutcome = 0.82
   const xReason = 0.999
 
-  const submittedIdx = addNode('Submitted', '#375DFB', xSubmitted, 0.5)
+  const submittedIdx = addNode('Submitted', PRIMARY_COLOR, xSubmitted, 0.5)
   // Delivered sits above, Failed below, so their links separate visually.
-  const deliveredIdx = addNode('Delivered', '#039855', xOutcome, 0.15)
-  const failedIdx = addNode('Failed', '#D92D20', xOutcome, 0.82)
+  const deliveredIdx = addNode('Delivered', monochromeScale[1], xOutcome, 0.15)
+  const failedIdx = addNode('Failed', monochromeScale[3], xOutcome, 0.82)
 
   const channelNodeIdx = {}
   priority.forEach((ch, i) => {
@@ -69,7 +70,7 @@ const sankey = computed(() => {
     const y = 0.48 + i * 0.06
     channelNodeIdx[ch] = addNode(
       CHANNEL_LABEL[ch] || ch,
-      CHANNEL_COLOR[ch] || '#667085',
+      CHANNEL_COLOR[ch] || PRIMARY_COLOR,
       x,
       Math.min(y, 0.72),
     )
@@ -96,14 +97,14 @@ const sankey = computed(() => {
     sources.push(prevNodeIdx)
     targets.push(channelIdx)
     values.push(remaining)
-    linkColors.push((CHANNEL_COLOR[ch] || '#667085') + '44')
+    linkColors.push(adjustOpacity(PRIMARY_COLOR, 0.24))
 
     // channel → Delivered
     if (delivered > 0) {
       sources.push(channelIdx)
       targets.push(deliveredIdx)
       values.push(delivered)
-      linkColors.push('#03985544')
+      linkColors.push(adjustOpacity(PRIMARY_COLOR, 0.34))
     }
 
     // channel → Failed (only for the last channel; earlier failures cascade)
@@ -111,7 +112,7 @@ const sankey = computed(() => {
       sources.push(channelIdx)
       targets.push(failedIdx)
       values.push(leftover)
-      linkColors.push('#D92D2044')
+      linkColors.push(adjustOpacity(PRIMARY_COLOR, 0.18))
       terminalFailed = leftover
     }
 
@@ -128,11 +129,11 @@ const sankey = computed(() => {
   topReasons.forEach((r, i) => {
     const scaled = Math.round((r.count / reasonSum) * terminalFailed)
     if (scaled <= 0) return
-    const idx = addNode(r.label, '#B42318', xReason, Math.min(0.98, reasonBaseY + i * reasonStep))
+    const idx = addNode(r.label, monochromeScale[(i + 2) % monochromeScale.length], xReason, Math.min(0.98, reasonBaseY + i * reasonStep))
     sources.push(failedIdx)
     targets.push(idx)
     values.push(scaled)
-    linkColors.push('#B4231844')
+    linkColors.push(adjustOpacity(PRIMARY_COLOR, 0.16))
   })
 
   return { labels, colors, xs, ys, sources, targets, values, linkColors }

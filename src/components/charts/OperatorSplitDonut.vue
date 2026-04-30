@@ -1,13 +1,12 @@
 <script setup>
 import { computed } from 'vue'
 import PlotlyChart from './PlotlyChart.vue'
+import { monochromeScale } from '@/utils/chartColors'
 
 const props = defineProps({
   operators: { type: Array, required: true }, // [{ label, count, deliveryRate }]
   height: { type: [String, Number], default: 260 },
 })
-
-const COLORS = ['#375DFB', '#5E7BFC', '#85A0FD', '#ADC5FE', '#D4DAFF']
 
 const entries = computed(() => props.operators.filter((o) => o.count > 0))
 
@@ -18,7 +17,7 @@ const traces = computed(() => [
     values: entries.value.map((o) => o.count),
     labels: entries.value.map((o) => o.label),
     marker: {
-      colors: entries.value.map((_, i) => COLORS[i % COLORS.length]),
+      colors: entries.value.map((_, i) => monochromeScale[i % monochromeScale.length]),
       line: { color: '#ffffff', width: 2 },
     },
     textinfo: 'label+percent',

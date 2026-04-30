@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import PlotlyChart from './PlotlyChart.vue'
+import { failureBarColors } from '@/utils/chartColors'
 
 const props = defineProps({
   reasons: { type: Array, required: true }, // [{ key, label, count }]
@@ -19,7 +20,7 @@ const traces = computed(() => [
     x: sorted.value.map((r) => r.count),
     marker: {
       color: sorted.value.map((r) =>
-        r.key === 'inactive-template' ? '#5E7BFC' : '#375DFB',
+        r.key === 'inactive-template' ? failureBarColors.secondary : failureBarColors.primary,
       ),
       line: { width: 0 },
     },

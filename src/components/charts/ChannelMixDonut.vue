@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import PlotlyChart from './PlotlyChart.vue'
+import { channelColors, PRIMARY_COLOR } from '@/utils/chartColors'
 
 const props = defineProps({
   series: { type: Array, required: true },
@@ -8,9 +9,9 @@ const props = defineProps({
 })
 
 const CHANNEL_META = {
-  rcs: { label: 'RCS', color: '#85A0FD' },
-  tc: { label: 'TrueCaller', color: '#ADC5FE' },
-  sms: { label: 'SMS', color: '#375DFB' },
+  rcs: { label: 'RCS', color: channelColors.rcs },
+  tc: { label: 'TrueCaller', color: channelColors.tc },
+  sms: { label: 'SMS', color: channelColors.sms },
 }
 
 const totals = computed(() => {
@@ -34,7 +35,7 @@ const traces = computed(() => [
     values: entries.value.map(([, v]) => v),
     labels: entries.value.map(([ch]) => CHANNEL_META[ch]?.label || ch.toUpperCase()),
     marker: {
-      colors: entries.value.map(([ch]) => CHANNEL_META[ch]?.color || '#667085'),
+      colors: entries.value.map(([ch]) => CHANNEL_META[ch]?.color || PRIMARY_COLOR),
       line: { color: '#ffffff', width: 2 },
     },
     textinfo: 'percent',

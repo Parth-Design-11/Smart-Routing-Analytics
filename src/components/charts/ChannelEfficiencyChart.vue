@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import PlotlyChart from './PlotlyChart.vue'
+import { adjustOpacity, channelColors, PRIMARY_COLOR } from '@/utils/chartColors'
 
 const props = defineProps({
   channel: { type: String, required: true }, // 'tc' | 'rcs' | 'sms'
@@ -8,12 +9,12 @@ const props = defineProps({
 })
 
 const CHANNEL_META = {
-  tc:  { label: 'TrueCaller', color: '#12b76a' },
-  rcs: { label: 'RCS',        color: '#7839ee' },
-  sms: { label: 'SMS',        color: '#1570ef' },
+  tc: { label: 'TrueCaller', color: channelColors.tc },
+  rcs: { label: 'RCS', color: channelColors.rcs },
+  sms: { label: 'SMS', color: channelColors.sms },
 }
 
-const meta = computed(() => CHANNEL_META[props.channel] || { label: props.channel, color: '#667085' })
+const meta = computed(() => CHANNEL_META[props.channel] || { label: props.channel, color: PRIMARY_COLOR })
 
 const plotData = computed(() => [
   {
@@ -21,21 +22,21 @@ const plotData = computed(() => [
     name: 'Attempted',
     x: [meta.value.label],
     y: [props.data.attempted],
-    marker: { color: meta.value.color, opacity: 0.35 },
+    marker: { color: adjustOpacity(PRIMARY_COLOR, 0.3) },
   },
   {
     type: 'bar',
     name: 'Delivered',
     x: [meta.value.label],
     y: [props.data.delivered],
-    marker: { color: '#15be53' },
+    marker: { color: PRIMARY_COLOR },
   },
   {
     type: 'bar',
     name: 'Failed',
     x: [meta.value.label],
     y: [props.data.failed],
-    marker: { color: '#d92d20' },
+    marker: { color: adjustOpacity(PRIMARY_COLOR, 0.55) },
   },
 ])
 
@@ -45,7 +46,7 @@ const layout = computed(() => ({
   legend: { orientation: 'h', y: -0.2, x: 0.5, xanchor: 'center' },
   margin: { t: 8, r: 8, b: 48, l: 48 },
   xaxis: { showticklabels: false, showgrid: false, zeroline: false },
-  yaxis: { showgrid: true, gridcolor: '#e5e7eb', zeroline: false },
+  yaxis: { showgrid: true, zeroline: false },
 }))
 </script>
 

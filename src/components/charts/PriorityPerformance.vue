@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import PlotlyChart from './PlotlyChart.vue'
+import { channelColors, PRIMARY_COLOR } from '@/utils/chartColors'
 
 // Multi-channel only. Shows what share of final-delivered messages landed
 // at each priority step (priority 1 → priority 2 → SMS fallback).
@@ -10,7 +11,7 @@ const props = defineProps({
   height: { type: [String, Number], default: 200 },
 })
 
-const CHANNEL_COLOR = { sms: '#375DFB', rcs: '#85A0FD', tc: '#ADC5FE' }
+const CHANNEL_COLOR = channelColors
 const CHANNEL_LABEL = { sms: 'SMS', rcs: 'RCS', tc: 'TrueCaller' }
 
 const stages = computed(() => {
@@ -20,7 +21,7 @@ const stages = computed(() => {
     return {
       label: i === 0 ? `P1 · ${CHANNEL_LABEL[ch]}` : i === priority.length - 1 ? `Fallback · ${CHANNEL_LABEL[ch]}` : `P${i + 1} · ${CHANNEL_LABEL[ch]}`,
       value: c.delivered || 0,
-      color: CHANNEL_COLOR[ch] || '#667085',
+      color: CHANNEL_COLOR[ch] || PRIMARY_COLOR,
     }
   })
 })

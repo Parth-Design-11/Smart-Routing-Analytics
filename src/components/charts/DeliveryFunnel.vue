@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import PlotlyChart from './PlotlyChart.vue'
+import { funnelColors } from '@/utils/chartColors'
 
 // Adaptive funnel. For overall view: Submitted → Attempted → Delivered on
 // primary → Fallback → Final delivered. For route views, pass a custom
@@ -31,23 +32,24 @@ const computedStages = computed(() => {
 const traces = computed(() => [
   {
     type: 'funnel',
-    y: computedStages.value.map((s) => s.label),
-    x: computedStages.value.map((s) => s.value),
+    orientation: 'v',
+    x: computedStages.value.map((s) => s.label),
+    y: computedStages.value.map((s) => s.value),
     textinfo: 'value+percent initial',
     textfont: { color: '#ffffff', size: 12 },
     marker: {
-      color: ['#375DFB', '#5E7BFC', '#1A3497', '#85A0FD', '#2447C9'],
+      color: funnelColors,
       line: { color: '#ffffff', width: 1 },
     },
     connector: { line: { color: '#e4e7ec' } },
-    hovertemplate: '<b>%{y}</b><br>%{x:,.0f}<extra></extra>',
+    hovertemplate: '<b>%{x}</b><br>%{y:,.0f}<extra></extra>',
   },
 ])
 
 const layout = computed(() => ({
   showlegend: false,
-  margin: { l: 160, r: 16, t: 8, b: 8 },
-  yaxis: { automargin: true },
+  margin: { l: 16, r: 16, t: 8, b: 40 },
+  xaxis: { automargin: true },
 }))
 </script>
 

@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import PlotlyChart from './PlotlyChart.vue'
+import { channelColors, monochromeScale, PRIMARY_COLOR } from '@/utils/chartColors'
 
 const props = defineProps({
   channel: { type: String, required: true }, // 'tc' | 'rcs' | 'sms'
@@ -8,9 +9,9 @@ const props = defineProps({
 })
 
 const CHANNEL_COLORS = {
-  tc:  '#12b76a',
-  rcs: '#7839ee',
-  sms: '#1570ef',
+  tc: channelColors.tc,
+  rcs: channelColors.rcs,
+  sms: channelColors.sms,
 }
 
 const plotData = computed(() => {
@@ -21,11 +22,11 @@ const plotData = computed(() => {
   const otherCount = rest.reduce((s, r) => s + r.count, 0)
 
   const slices = otherCount > 0 ? [...top, { key: 'other-agg', label: 'Other', count: otherCount }] : top
-  const primary = CHANNEL_COLORS[props.channel] || '#667085'
+  const primary = CHANNEL_COLORS[props.channel] || PRIMARY_COLOR
 
   // Generate color palette: primary for largest slice, muted variants for rest.
   const colors = slices.map((_, i) =>
-    i === 0 ? primary : `rgba(102,112,133,${0.5 - i * 0.07})`
+    i === 0 ? primary : monochromeScale[(i + 1) % monochromeScale.length],
   )
 
   return [{

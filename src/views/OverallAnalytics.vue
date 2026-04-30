@@ -8,6 +8,8 @@ import Skeleton from '@/components/ui/Skeleton.vue'
 
 import ChannelEfficiencyChart from '@/components/charts/ChannelEfficiencyChart.vue'
 import ChannelFailurePie from '@/components/charts/ChannelFailurePie.vue'
+import DeliveryFunnel from '@/components/charts/DeliveryFunnel.vue'
+import PlotlyChart from '@/components/charts/PlotlyChart.vue'
 
 import RouteLeaderboard from '@/components/analytics/RouteLeaderboard.vue'
 
@@ -16,6 +18,7 @@ import { generateOverallMetrics } from '@/mock/generateMetrics'
 import { getDateRangeLabel } from '@/utils/dateRange'
 import { formatNumber, formatPercent } from '@/utils/format'
 import { ENTERPRISES } from '@/mock/routes'
+import { adjustOpacity, channelColors, PRIMARY_COLOR } from '@/utils/chartColors'
 
 const tabs = [
   { label: 'Routes', to: '/routes' },
@@ -74,6 +77,21 @@ const filteredEmpty = computed(
 
 const zeroData = computed(() => metrics.value.totals.submitted === 0)
 
+const deliveryPerformanceFunnelStages = computed(() => {
+  const t = metrics.value.totals
+  return [
+    { label: 'Total messages submitted', value: t.submitted },
+    { label: 'Total delivered', value: t.delivered },
+    { label: 'Total failed', value: t.failed },
+  ]
+})
+
+const channelTrendMeta = {
+  tc: { label: 'TrueCaller', color: PRIMARY_COLOR },
+  rcs: { label: 'RCS', color: PRIMARY_COLOR },
+  sms: { label: 'SMS', color: PRIMARY_COLOR },
+}
+
 const dateLabel = computed(() =>
   getDateRangeLabel(store.dateRange, store.customStart, store.customEnd),
 )
@@ -97,6 +115,35 @@ function formatCurrency(v) {
   if (v >= 1_00_000) return `₹${(v / 1_00_000).toFixed(1)}L`
   if (v >= 1_000) return `₹${(v / 1_000).toFixed(1)}K`
   return `₹${Math.round(v)}`
+}
+
+function channelTrendValues(channel) {
+  return metrics.value.series.map((s) => s.perChannel[channel]?.delivered || 0)
+}
+
+function channelLineData(channel) {
+  const meta = channelTrendMeta[channel]
+  return [
+    {
+      x: metrics.value.series.map((s) => s.ts),
+      y: channelTrendValues(channel),
+      name: meta.label,
+      type: 'scatter',
+      mode: 'lines+markers',
+      line: { color: meta.color, width: 1, shape: 'spline', smoothing: 0.55 },
+      marker: { color: meta.color, size: 4 },
+      fill: 'tozeroy',
+      fillcolor: adjustOpacity(PRIMARY_COLOR, 0.08),
+      hovertemplate: `<b>%{x|%d %b}</b><br>${meta.label}: %{y:,.0f} delivered<extra></extra>`,
+    },
+  ]
+}
+
+const channelLineLayout = {
+  showlegend: false,
+  margin: { l: 44, r: 8, t: 8, b: 28 },
+  xaxis: { type: 'date', tickformat: '%d %b', nticks: 3, showgrid: false },
+  yaxis: { tickformat: '~s', nticks: 3, zeroline: false },
 }
 </script>
 
@@ -214,39 +261,11 @@ function formatCurrency(v) {
         </div>
       </div>
 
-      <!-- Section B: Delivery Performance -->
-      <div>
-        <h2 class="mb-3 text-sub-heading text-ink">Delivery Performance</h2>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div class="card p-4">
-            <p class="text-caption text-ink-muted">Total Messages Submitted</p>
-            <Skeleton v-if="loading" height="32px" class="mt-2" />
-            <p v-else class="mt-1 font-mono text-section-heading tabular-nums text-ink">
-              {{ formatNumber(metrics.totals.submitted) }}
-            </p>
-          </div>
-          <div class="card p-4">
-            <p class="text-caption text-ink-muted">Total Delivered</p>
-            <Skeleton v-if="loading" height="32px" class="mt-2" />
-            <p v-else class="mt-1 font-mono text-section-heading tabular-nums text-success-text">
-              {{ formatNumber(metrics.totals.delivered) }}
-            </p>
-          </div>
-          <div class="card p-4">
-            <p class="text-caption text-ink-muted">Total Failed</p>
-            <Skeleton v-if="loading" height="32px" class="mt-2" />
-            <p v-else class="mt-1 font-mono text-section-heading tabular-nums text-danger-text">
-              {{ formatNumber(metrics.totals.failed) }}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Section C: Channel Attribution -->
+      <!-- Section B: Channel Attribution -->
       <div>
         <h2 class="mb-3 text-sub-heading text-ink">Channel Attribution</h2>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div class="card p-4 border-l-4" style="border-left-color: #12b76a">
+          <div class="card p-4">
             <p class="text-caption text-ink-muted">Delivered on TrueCaller</p>
             <Skeleton v-if="loading" height="32px" class="mt-2" />
             <p v-else class="mt-1 font-mono text-section-heading tabular-nums text-ink">
@@ -255,8 +274,16 @@ function formatCurrency(v) {
             <p class="mt-0.5 text-micro text-ink-muted">
               of {{ formatNumber(metrics.channelTotals.tc.attempted) }} attempted
             </p>
+            <Skeleton v-if="loading" height="112px" class="mt-3" />
+            <PlotlyChart
+              v-else
+              class="mt-3"
+              :data="channelLineData('tc')"
+              :layout="channelLineLayout"
+              height="112px"
+            />
           </div>
-          <div class="card p-4 border-l-4" style="border-left-color: #7839ee">
+          <div class="card p-4">
             <p class="text-caption text-ink-muted">Delivered on RCS</p>
             <Skeleton v-if="loading" height="32px" class="mt-2" />
             <p v-else class="mt-1 font-mono text-section-heading tabular-nums text-ink">
@@ -265,8 +292,16 @@ function formatCurrency(v) {
             <p class="mt-0.5 text-micro text-ink-muted">
               of {{ formatNumber(metrics.channelTotals.rcs.attempted) }} attempted
             </p>
+            <Skeleton v-if="loading" height="112px" class="mt-3" />
+            <PlotlyChart
+              v-else
+              class="mt-3"
+              :data="channelLineData('rcs')"
+              :layout="channelLineLayout"
+              height="112px"
+            />
           </div>
-          <div class="card p-4 border-l-4" style="border-left-color: #1570ef">
+          <div class="card p-4">
             <p class="text-caption text-ink-muted">Delivered on SMS</p>
             <Skeleton v-if="loading" height="32px" class="mt-2" />
             <p v-else class="mt-1 font-mono text-section-heading tabular-nums text-ink">
@@ -275,7 +310,31 @@ function formatCurrency(v) {
             <p class="mt-0.5 text-micro text-ink-muted">
               of {{ formatNumber(metrics.channelTotals.sms.attempted) }} attempted
             </p>
+            <Skeleton v-if="loading" height="112px" class="mt-3" />
+            <PlotlyChart
+              v-else
+              class="mt-3"
+              :data="channelLineData('sms')"
+              :layout="channelLineLayout"
+              height="112px"
+            />
           </div>
+        </div>
+      </div>
+
+      <!-- Section C: Delivery Performance -->
+      <div>
+        <h2 class="mb-3 text-sub-heading text-ink">Delivery Performance</h2>
+        <p class="mb-3 text-caption text-ink-muted">
+          Volume at each outcome: submitted traffic, successful deliveries, and failures.
+        </p>
+        <div class="card p-4">
+          <Skeleton v-if="loading" height="300px" />
+          <DeliveryFunnel
+            v-else
+            :stages="deliveryPerformanceFunnelStages"
+            :height="300"
+          />
         </div>
       </div>
 
@@ -285,7 +344,10 @@ function formatCurrency(v) {
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div class="card p-4">
             <div class="mb-2 flex items-center gap-2">
-              <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:#12b76a" />
+              <span
+                class="inline-block h-2.5 w-2.5 rounded-full"
+                :style="{ backgroundColor: channelTrendMeta.tc.color }"
+              />
               <h3 class="text-sub-heading text-ink">TrueCaller</h3>
             </div>
             <Skeleton v-if="loading" height="220px" />
@@ -293,7 +355,10 @@ function formatCurrency(v) {
           </div>
           <div class="card p-4">
             <div class="mb-2 flex items-center gap-2">
-              <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:#7839ee" />
+              <span
+                class="inline-block h-2.5 w-2.5 rounded-full"
+                :style="{ backgroundColor: channelTrendMeta.rcs.color }"
+              />
               <h3 class="text-sub-heading text-ink">RCS</h3>
             </div>
             <Skeleton v-if="loading" height="220px" />
@@ -301,7 +366,10 @@ function formatCurrency(v) {
           </div>
           <div class="card p-4">
             <div class="mb-2 flex items-center gap-2">
-              <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:#1570ef" />
+              <span
+                class="inline-block h-2.5 w-2.5 rounded-full"
+                :style="{ backgroundColor: channelTrendMeta.sms.color }"
+              />
               <h3 class="text-sub-heading text-ink">SMS</h3>
             </div>
             <Skeleton v-if="loading" height="220px" />

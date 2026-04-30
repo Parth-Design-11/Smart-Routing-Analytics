@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import PlotlyChart from './PlotlyChart.vue'
+import { heatmapGradient } from '@/utils/chartColors'
 
 const props = defineProps({
   senders: { type: Array, required: true }, // string[]
@@ -41,12 +42,7 @@ const traces = computed(() => [
     z: z.value,
     x: props.templates.map((t) => t.name),
     y: props.matrix.map((r) => r.sender),
-    colorscale: [
-      [0, '#EEF2FF'],
-      [0.4, '#ADC5FE'],
-      [0.7, '#5E7BFC'],
-      [1, '#1A3497'],
-    ],
+    colorscale: heatmapGradient,
     zmin: 0,
     zmax: 100,
     showscale: true,
