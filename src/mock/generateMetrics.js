@@ -225,10 +225,45 @@ export function generateRouteMetrics(routeId, dateRange) {
   }
 }
 
+// Channel-specific failure reason weights — different channels fail for different reasons.
+const CHANNEL_FAILURE_WEIGHTS = {
+  tc: {
+    'agent-not-found':    0.32,
+    'handset-unreachable': 0.18,
+    'dnd':                 0.14,
+    'inactive-template':   0.16,
+    'operator-rejected':   0.08,
+    'timeout':             0.07,
+    'invalid-number':      0.03,
+    'other':               0.02,
+  },
+  rcs: {
+    'agent-not-found':    0.28,
+    'inactive-template':   0.22,
+    'handset-unreachable': 0.16,
+    'operator-rejected':   0.14,
+    'dnd':                 0.10,
+    'timeout':             0.06,
+    'invalid-number':      0.02,
+    'other':               0.02,
+  },
+  sms: {
+    'handset-unreachable': 0.30,
+    'dnd':                 0.24,
+    'operator-rejected':   0.18,
+    'invalid-number':      0.12,
+    'timeout':             0.08,
+    'agent-not-found':     0.00,
+    'inactive-template':   0.05,
+    'other':               0.03,
+  },
+}
+
 export function generateOverallMetrics(dateRange) {
   // Include most routes but exclude the brand-new (no-traffic) edge case
   // from the leaderboard since it has zero volume.
-  const routes = getSmartRoutes().filter((r) => r.edgeCase !== 'new')
+  const allRoutes = getSmartRoutes()
+  const routes = allRoutes.filter((r) => r.edgeCase !== 'new')
   const perRoute = routes.map((r) => generateRouteMetrics(r.id, dateRange))
 
   const totals = perRoute.reduce(
@@ -299,23 +334,72 @@ export function generateOverallMetrics(dateRange) {
     return row
   })
 
-  // Route leaderboard rows.
-  const leaderboard = perRoute.map((m) => ({
-    id: m.route.id,
-    name: m.route.name,
-    enterprise: m.route.enterprise,
-    type: m.route.type,
-    channels: m.route.channels,
-    volume: m.totals.submitted,
-    deliveryRate: m.kpis.deliveryRate,
-    fallbackRate: m.kpis.fallbackRate,
-    avgLatencyMs: m.kpis.avgLatencyMs,
-    status: m.route.status,
-    deliveryDelta: m.kpis.deliveryDelta,
-    sparkline: m.series.map((s) =>
-      s.submitted ? (s.delivered / s.submitted) * 100 : 0,
-    ),
-  }))
+  // Aggregate channel totals across all routes and all time buckets.
+  const channelTotals = { sms: { attempted: 0, delivered: 0, failed: 0 }, rcs: { attempted: 0, delivered: 0, failed: 0 }, tc: { attempted: 0, delivered: 0, failed: 0 } }
+  perRoute.forEach((m) => {
+    m.series.forEach((s) => {
+      Object.entries(s.perChannel).forEach(([ch, v]) => {
+        if (channelTotals[ch]) {
+          channelTotals[ch].attempted += v.attempted
+          channelTotals[ch].delivered += v.delivered
+        }
+      })
+    })
+  })
+  opChannels.forEach((ch) => {
+    channelTotals[ch].failed = channelTotals[ch].attempted - channelTotals[ch].delivered
+  })
+
+  // Per-channel failure reason breakdown.
+  const channelFailureReasons = {}
+  opChannels.forEach((ch) => {
+    const chFailed = channelTotals[ch].failed
+    const weights = CHANNEL_FAILURE_WEIGHTS[ch] || {}
+    channelFailureReasons[ch] = FAILURE_REASONS
+      .filter((r) => (weights[r.key] || 0) > 0)
+      .map((r) => ({ key: r.key, label: r.label, count: Math.round(chFailed * (weights[r.key] || 0)) }))
+      .sort((a, b) => b.count - a.count)
+  })
+
+  // Route summary stats.
+  const routesUtilized = perRoute.filter((m) => m.totals.submitted > 0).length
+  const estimatedCostSavings =
+    channelTotals.tc.delivered * 0.12 + channelTotals.rcs.delivered * 0.10
+
+  const routeSummary = {
+    totalRoutes: allRoutes.length,
+    activeRoutes: allRoutes.filter((r) => r.status === 'active').length,
+    routesUtilized,
+    utilizationPct: allRoutes.length ? (routesUtilized / allRoutes.length) * 100 : 0,
+    estimatedCostSavings,
+  }
+
+  // Route leaderboard rows with new per-channel delivery fields.
+  const leaderboard = perRoute.map((m) => {
+    const delOnTc  = m.series.reduce((a, s) => a + (s.perChannel.tc?.delivered  || 0), 0)
+    const delOnRcs = m.series.reduce((a, s) => a + (s.perChannel.rcs?.delivered || 0), 0)
+    const delOnSms = m.series.reduce((a, s) => a + (s.perChannel.sms?.delivered || 0), 0)
+    const timesUtilized = m.series.filter((s) => s.submitted > 0).length
+    return {
+      id: m.route.id,
+      name: m.route.name,
+      enterprise: m.route.enterprise,
+      type: m.route.type,
+      channels: m.route.channels,
+      volume: m.totals.submitted,
+      totalFailed: m.totals.failed,
+      deliveryRate: m.kpis.deliveryRate,
+      fallbackRate: m.kpis.fallbackRate,
+      avgLatencyMs: m.kpis.avgLatencyMs,
+      status: m.route.status,
+      deliveryDelta: m.kpis.deliveryDelta,
+      sparkline: m.series.map((s) => (s.submitted ? (s.delivered / s.submitted) * 100 : 0)),
+      delOnTc,
+      delOnRcs,
+      delOnSms,
+      timesUtilized,
+    }
+  })
 
   const underperforming = leaderboard
     .filter((r) => r.deliveryRate < 85 || r.deliveryDelta < -2)
@@ -338,6 +422,9 @@ export function generateOverallMetrics(dateRange) {
       volumeDelta: 12.4,
       latencyDelta: -4.2,
     },
+    routeSummary,
+    channelTotals,
+    channelFailureReasons,
     reasonTotals: Object.values(reasonMap),
     routeTypeCounts,
     perRoute,

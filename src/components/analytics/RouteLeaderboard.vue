@@ -3,9 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import DataTable from '@/components/ui/DataTable.vue'
 import ChannelStack from '@/components/ui/ChannelStack.vue'
-import StatusPill from '@/components/ui/StatusPill.vue'
-import { ROUTE_TYPE_META } from '@/mock/routes'
-import { formatNumber, formatPercent, formatLatencyMs } from '@/utils/format'
+import { formatNumber } from '@/utils/format'
 
 const props = defineProps({
   rows: { type: Array, required: true },
@@ -36,35 +34,15 @@ const sortedRows = computed(() => {
 })
 
 const columns = [
-  { key: 'name', label: 'Route' },
-  { key: 'enterprise', label: 'Enterprise' },
-  { key: 'type', label: 'Type' },
-  { key: 'channels', label: 'Channels' },
-  { key: 'volume', label: 'Volume', align: 'right', sortable: true },
-  { key: 'deliveryRate', label: 'Delivery %', align: 'right', sortable: true },
-  { key: 'fallbackRate', label: 'Fallback %', align: 'right', sortable: true },
-  { key: 'avgLatencyMs', label: 'Avg latency', align: 'right', sortable: true },
-  { key: 'sparkline', label: 'Trend', align: 'center' },
-  { key: 'status', label: 'Status' },
+  { key: 'name',          label: 'Route' },
+  { key: 'channels',      label: 'Channels' },
+  { key: 'volume',        label: 'Submitted',      align: 'right', sortable: true },
+  { key: 'delOnTc',       label: 'Del. on TC',     align: 'right', sortable: true },
+  { key: 'delOnRcs',      label: 'Del. on RCS',    align: 'right', sortable: true },
+  { key: 'delOnSms',      label: 'Del. on SMS',    align: 'right', sortable: true },
+  { key: 'totalFailed',   label: 'Total Failed',   align: 'right', sortable: true },
+  { key: 'timesUtilized', label: 'Times Utilized', align: 'right', sortable: true },
 ]
-
-// Build a tiny inline-SVG sparkline for the Delivery-% trend.
-function sparkPath(values) {
-  if (!values || !values.length) return ''
-  const w = 80
-  const h = 20
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const range = max - min || 1
-  const step = w / (values.length - 1 || 1)
-  return values
-    .map((v, i) => {
-      const x = i * step
-      const y = h - ((v - min) / range) * h
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
-    })
-    .join(' ')
-}
 
 function openRoute(row) {
   router.push({ name: 'route-analytics', params: { id: row.id } })
@@ -91,49 +69,31 @@ function openRoute(row) {
         </button>
       </template>
 
-      <template #cell-type="{ row }">
-        <span class="text-caption text-ink-subtle">{{ ROUTE_TYPE_META[row.type]?.label }}</span>
-      </template>
       <template #cell-channels="{ row }">
         <ChannelStack :channels="row.channels" />
       </template>
       <template #cell-volume="{ row }">
         <span class="font-mono tabular-nums">{{ formatNumber(row.volume) }}</span>
       </template>
-      <template #cell-deliveryRate="{ row }">
+      <template #cell-delOnTc="{ row }">
+        <span class="font-mono tabular-nums text-ink-subtle">{{ formatNumber(row.delOnTc) }}</span>
+      </template>
+      <template #cell-delOnRcs="{ row }">
+        <span class="font-mono tabular-nums text-ink-subtle">{{ formatNumber(row.delOnRcs) }}</span>
+      </template>
+      <template #cell-delOnSms="{ row }">
+        <span class="font-mono tabular-nums text-ink-subtle">{{ formatNumber(row.delOnSms) }}</span>
+      </template>
+      <template #cell-totalFailed="{ row }">
         <span
           class="font-mono tabular-nums"
-          :class="row.deliveryRate < 80 ? 'text-danger-text' : 'text-ink'"
+          :class="row.totalFailed > 0 ? 'text-danger-text' : 'text-ink-subtle'"
         >
-          {{ formatPercent(row.deliveryRate) }}
+          {{ formatNumber(row.totalFailed) }}
         </span>
       </template>
-      <template #cell-fallbackRate="{ row }">
-        <span class="font-mono tabular-nums text-ink-subtle">
-          {{ formatPercent(row.fallbackRate) }}
-        </span>
-      </template>
-      <template #cell-avgLatencyMs="{ row }">
-        <span class="font-mono tabular-nums text-ink-subtle">
-          {{ formatLatencyMs(row.avgLatencyMs) }}
-        </span>
-      </template>
-      <template #cell-sparkline="{ row }">
-        <svg viewBox="0 0 80 20" class="inline-block h-5 w-20 text-brand-blue">
-          <path
-            :d="sparkPath(row.sparkline)"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </template>
-      <template #cell-status="{ row }">
-        <StatusPill :tone="row.status === 'active' ? 'success' : 'warning'">
-          {{ row.status === 'active' ? 'Active' : 'Paused' }}
-        </StatusPill>
+      <template #cell-timesUtilized="{ row }">
+        <span class="font-mono tabular-nums text-ink-subtle">{{ row.timesUtilized }}</span>
       </template>
     </DataTable>
   </div>
